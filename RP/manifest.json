@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Nukes & Missiles RP",
+    "description": "Textures and names for Nukes & Missiles.",
+    "uuid": "38400000-8cf0-11bd-b23e-10b96e4ef00d",
+    "version":,
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "6fa459ea-ee8a-3ca4-894e-db77e160355e",
+      "version": [1, 0, 0]
+    }
+  ]
+}
