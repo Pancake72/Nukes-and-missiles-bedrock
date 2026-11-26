@@ -4,7 +4,7 @@
     "name": "Nukes & Missiles RP",
     "description": "Textures and names for Nukes & Missiles.",
     "uuid": "38400000-8cf0-11bd-b23e-10b96e4ef00d",
-    "version":,
+    "version":[1, 0, 0],
     "min_engine_version": [1, 21, 0]
   },
   "modules": [
