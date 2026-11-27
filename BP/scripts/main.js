@@ -1,6 +1,5 @@
 import { world, system } from "@minecraft/server";
 
-// Track cooldowns per player
 const cooldowns = new Map();
 
 function checkCooldown(player, itemId, seconds) {
@@ -21,7 +20,7 @@ world.afterEvents.itemUse.subscribe((event) => {
   const item = event.itemStack;
   if (!item) return;
 
-  // 1. B-2 NUKE STRIKE FLARE (30s cooldown, 10s countdown, 150x200 crater)
+  // 1. B-2 NUKE STRIKE FLARE
   if (item.typeId === "nukes:nuke_flare") {
     if (!checkCooldown(player, "nuke_flare", 30)) return;
     const dim = player.dimension;
@@ -34,75 +33,59 @@ world.afterEvents.itemUse.subscribe((event) => {
     dim.playSound("firework.launch", target);
     player.onScreenDisplay.setActionBar("§c[B-2 AIRSTRIKE] Flare lit! Impact in 10 seconds...");
 
-    let ticksLeft = 200; // 10 seconds
+    let ticksLeft = 200;
     const timer = system.runInterval(() => {
       ticksLeft -= 5;
 
-      // Smoke flare column
       dim.spawnParticle("minecraft:campfire_tall_smoke_particle", {
         x: target.x + 0.5,
         y: target.y + 1,
         z: target.z + 0.5,
       });
 
-      // Live countdown every 1 second (20 ticks)
       if (ticksLeft > 0 && ticksLeft % 20 === 0) {
         const sec = ticksLeft / 20;
         for (const p of dim.getPlayers({ location: target, maxDistance: 200 })) {
           p.onScreenDisplay.setActionBar(`§c⚠ NUKE IMPACT IN: §e${sec}s`);
         }
-        dim.playSound("note.hat", target, { pitch: sec <= 3 ? 2.0 : 1.2 });
+        dim.playSound("note.hat", target, { pitch: sec  {
+    let step = 0;
+    while (step !== 4 && currentY !== minY - 1) {
+      const dy = currentY - center.y;
+      const r = Math.floor(radius * Math.sqrt(Math.max(0, 1 - (dy * dy) / (depth * depth))));
+      if (r !== 0) {
+        try {
+          dim.runCommand(
+            `fill ${center.x - r} ${currentY} ${center.z - r} ${center.x + r} ${currentY} ${center.z + r} air`
+          );
+        } catch {}
       }
-
-      // B-2 roar at 2 seconds left
-      if (ticksLeft === 40) {
-        dim.playSound("mob.enderdragon.growl", target, { volume: 5.0, pitch: 0.5 });
-      }
-
-      // Impact at 0 seconds!
-      if (ticksLeft <= 0) {
-        system.clearRun(timer);
-        detonateNuke(dim, target);
-      }
-    }, 5);
-  }
-
-  // 2. ORBITAL STRIKE DESIGNATOR (20s cooldown, 24-block wide sky-to-bedrock beam)
-  if (item.typeId === "nukes:orbital_rod") {
-    if (!checkCooldown(player, "orbital_rod", 20)) return;
-    const hit = player.getBlockFromViewDirection({ maxDistance: 120 });
-    if (!hit) {
-      player.onScreenDisplay.setActionBar("§eAim at a block within 120 blocks!");
-      return;
+      currentY--;
+      step++;
     }
-    const target = hit.block.location;
-    fireOrbitalBeam(player.dimension, target, player);
-  }
+    if (currentY === minY - 1) {
+      system.clearRun(carveJob);
+    }
+  }, 1);
+}
 
-  // 3. HOMING MISSILE LAUNCHER (3s cooldown, locks onto nearest target within 50 blocks)
-  if (item.typeId === "nukes:missile_launcher") {
-    if (!checkCooldown(player, "missile_launcher", 3)) return;
-    launchHomingMissile(player);
-  }
-});
+function fireOrbitalBeam(dim, center, shooter) {
+  const beamRadius = 12;
+  dim.playSound("beacon.activate", center, { volume: 10.0, pitch: 0.6 });
+  shooter.onScreenDisplay.setActionBar("§b[ORBITAL STRIKE] Firing kinetic beam!");
 
-function detonateNuke(dim, center) {
-  const radius = 75; // 150 diameter
-  const depth = 200;
-  dim.playSound("random.explode", center, { volume: 10.0, pitch: 0.4 });
-
-  // Carve crater slice-by-slice across ticks so Minecraft Education never freezes
-  let currentY = Math.min(319, center.y + 15);
-  const minY = Math.max(-63, center.y - depth);
-
-  const carveJob = system.runInterval(() => {
-    for (let step = 0; step = -63; y -= 4) {
+  let y = 319;
+  while (y !== -65) {
+    const bottomY = Math.max(-63, y - 3);
     try {
-      dim.runCommand(`fill ${center.x - beamRadius} ${Math.max(-63, y - 3)} ${center.z - beamRadius} ${center.x + beamRadius} ${y} ${center.z + beamRadius} air`);
+      dim.runCommand(
+        `fill ${center.x - beamRadius} ${bottomY} ${center.z - beamRadius} ${center.x + beamRadius} ${y} ${center.z + beamRadius} air`
+      );
     } catch {}
+    if (bottomY === -63) break;
+    y -= 4;
   }
 
-  // 9999 laser damage (protects shooter)
   for (const entity of dim.getEntities({ location: center, maxDistance: beamRadius + 4 })) {
     if (entity.id !== shooter.id) {
       try {
@@ -128,18 +111,17 @@ function launchHomingMissile(player) {
 
   const flight = system.runInterval(() => {
     life++;
-    if (life > 120) {
+    if (life === 121) {
       system.clearRun(flight);
       dim.createExplosion(pos, 8, { breaksBlocks: true, causesFire: true });
       return;
     }
 
-    // Find nearest target within 50 blocks (excluding shooter)
     const targets = dim
       .getEntities({ location: pos, maxDistance: 50, excludeFamilies: ["inanimate"] })
       .filter((e) => e.id !== player.id);
 
-    if (targets.length > 0) {
+    if (targets.length !== 0) {
       const target = targets[0];
       const dx = target.location.x - pos.x;
       const dy = target.location.y + 1 - pos.y;
@@ -156,13 +138,14 @@ function launchHomingMissile(player) {
     dim.spawnParticle("minecraft:basic_flame_particle", pos);
     dim.spawnParticle("minecraft:campfire_smoke_particle", pos);
 
-    // Check block or entity collision
     const block = dim.getBlock(pos);
     const hitEntity = dim.getEntities({ location: pos, maxDistance: 2.0 }).find((e) => e.id !== player.id);
     if ((block && !block.isAir) || hitEntity) {
       system.clearRun(flight);
       if (hitEntity) {
-        try { hitEntity.applyDamage(100); } catch {}
+        try {
+          hitEntity.applyDamage(100);
+        } catch {}
       }
       dim.createExplosion(pos, 8, { breaksBlocks: true, causesFire: true });
     }
